@@ -75,7 +75,7 @@ def page_not_found(error):
     return render_template('page_not_found.html'), 404
 
 
-@app.route('/link', methods=["post"])
+@app.route('/', methods=["post"])
 @json_view
 def link():
     url = request.values['url']
