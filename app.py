@@ -2,15 +2,16 @@ from flask import Flask, request, redirect, abort, render_template, Response
 from flask.ext.sqlalchemy import SQLAlchemy
 from gevent.pywsgi import WSGIServer
 from functools import wraps
+
 import datetime
 import json
 import random
+import settings
 import string
 
 
-SITE_URL = 'http://localhost:3000'
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = settings.ENGINE_URL
 db = SQLAlchemy(app)
 
 
@@ -46,7 +47,7 @@ class Link(db.Model):
             key=self.key,
             url=self.url,
             created=self.created.strftime('%F %X'),
-            link="%s/%s" % (SITE_URL, self.key),
+            link="%s/%s" % (settings.DOMAIN_URL, self.key),
             count=self.count or 0
         )
 
@@ -111,5 +112,5 @@ def stats(link_id):
 
 
 if __name__ == '__main__':
-    http = WSGIServer(('', 3000), app)
+    http = WSGIServer((settings.HOST, settings.PORT), app)
     http.serve_forever()
