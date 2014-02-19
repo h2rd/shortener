@@ -58,7 +58,7 @@ class Statistic(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created = db.Column(db.DateTime, default=datetime.datetime.now)
     link_id = db.Column(db.String(8), db.ForeignKey('links.key'))
-    user_agent = db.Column(db.String)
+    user_agent = db.Column(db.String(255))
     link = db.relationship('Link', backref=db.backref('statistics',
                                                       lazy='dynamic'))
 
