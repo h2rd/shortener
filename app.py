@@ -4,11 +4,11 @@ from gevent.pywsgi import WSGIServer
 from functools import wraps
 
 import datetime
+import hashlib
 import json
 import random
 import settings
 import string
-
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = settings.ENGINE_URL
@@ -24,6 +24,10 @@ def json_view(fun):
     return wrapper
 
 
+def md5(s):
+    return hashlib.md5(s).hexdigest()
+
+
 def randkey(length=5):
     return ''.join(random.sample(string.letters*length, length))
 
@@ -33,16 +37,26 @@ class Link(db.Model):
 
     key = db.Column(db.String(8), default=randkey, primary_key=True)
     url = db.Column(db.String(600))
+    md5_url = db.Column(db.String(64), unique=True)
     created = db.Column(db.DateTime, default=datetime.datetime.now)
     count = db.Column(db.Integer)
 
     def __init__(self, url):
         self.url = url
+        self.md5_url = md5(url)
 
     def __repl__(self):
         return 'Link(%s, %s)' % (self.key, self.url)
 
-    def info(self):
+    @classmethod
+    def find_by_key(cls, key):
+        return Link.query.filter_by(key=key).first()
+
+    @classmethod
+    def find_by_url(cls, url):
+        return Link.query.filter_by(md5_url=md5(url)).first()
+
+    def json(self):
         return dict(
             key=self.key,
             url=self.url,
@@ -78,19 +92,20 @@ def page_not_found(error):
 
 @app.route('/', methods=["post"])
 @json_view
-def link():
+def add_link():
     url = request.values['url']
-    link = Link(url=url)
+    link = Link.find_by_url(url)
+    if not link:
+        link = Link(url=url)
+        db.session.add(link)
+        db.session.commit()
 
-    db.session.add(link)
-    db.session.commit()
-
-    return link.info(), 200
+    return link.json(), 200
 
 
-@app.route('/<link_id>')
-def redirect_to_url(link_id):
-    link = Link.query.filter_by(key=link_id).first()
+@app.route('/<key>')
+def redirect_to_url(key):
+    link = Link.find_by_key(key)
     if not link:
         return abort(404)
 
@@ -102,13 +117,14 @@ def redirect_to_url(link_id):
     return redirect(link.url, 301)
 
 
-@app.route('/<link_id>+')
+@app.route('/<key>+')
 @json_view
-def stats(link_id):
-    link = Link.query.filter_by(key=link_id).first()
+def stats(key):
+    link = Link.find_by_key(key)
     if not link:
         return abort(404)
-    return link.info(), 200
+
+    return link.json(), 200
 
 
 if __name__ == '__main__':
