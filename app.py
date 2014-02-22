@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, abort, render_template, Response
+from flask import Flask, request, redirect, abort, Response
 from flask.ext.sqlalchemy import SQLAlchemy
 from gevent.pywsgi import WSGIServer
 from functools import wraps
@@ -18,7 +18,11 @@ db = SQLAlchemy(app)
 def json_view(fun):
     @wraps(fun)
     def wrapper(*args, **kwargs):
-        result, status = fun(*args, **kwargs)
+        try:
+            result, status = fun(*args, **kwargs)
+        except Exception as e:
+            result, status = {"error": {"message": e.name, "code": e.code}}, e.code
+
         headers = {"Content-type": "application/json"}
         return Response(json.dumps(result), status, headers)
     return wrapper
@@ -77,7 +81,6 @@ class Statistic(db.Model):
                                                       lazy='dynamic'))
 
     def __init_(self, link, user_agent):
-        print link, user_agent
         self.user_agent = user_agent
         self.link = link
 
@@ -86,9 +89,13 @@ class Statistic(db.Model):
 
 
 @app.errorhandler(404)
+@json_view
 def page_not_found(error):
-    return render_template('page_not_found.html'), 404
+    return abort(404)
 
+@app.route('/')
+def main():
+    return abort(404)
 
 @app.route('/', methods=["post"])
 @json_view
